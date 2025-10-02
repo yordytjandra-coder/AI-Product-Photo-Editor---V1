@@ -317,10 +317,20 @@ export default function App() {
                         <button onClick={() => downloadImage(res.imageHistory[res.currentIndex], idx)} className="p-2 bg-gray-700 rounded-full hover:bg-purple-600"><DownloadIcon /></button>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <div className="flex-grow flex gap-2 min-w-[150px]">
-                            <input type="text" placeholder="Refine with a command..." value={res.refinementPrompt} onChange={e => handleRefinementPromptChange(res.id, e.target.value)} className="flex-grow bg-[#1a1c2c] border border-gray-600 rounded-md p-2 text-sm placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500" />
-                            <button onClick={() => handleRefinement(res.id, res.refinementPrompt)} disabled={!res.refinementPrompt.trim() || isLoading} className="px-4 bg-purple-600 text-white font-semibold rounded-md text-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">Refine</button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex-1 flex gap-2 min-w-[150px]">
+                            <input 
+                                type="text" 
+                                placeholder="Refine..." 
+                                value={res.refinementPrompt} 
+                                onChange={e => handleRefinementPromptChange(res.id, e.target.value)} 
+                                className="flex-grow min-w-0 bg-[#1a1c2c] border border-gray-600 rounded-md p-2 text-sm placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500" />
+                            <button 
+                                onClick={() => handleRefinement(res.id, res.refinementPrompt)} 
+                                disabled={!res.refinementPrompt.trim() || isLoading} 
+                                className="flex-shrink-0 px-3 bg-purple-600 text-white font-semibold rounded-md text-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Refine
+                            </button>
                         </div>
                         <div className="flex gap-2">
                             <button onClick={() => handleUndo(res.id)} disabled={res.currentIndex === 0 || isLoading} className="p-2 bg-[#1a1c2c] rounded-md disabled:opacity-50"><UndoIcon /></button>
