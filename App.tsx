@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+
+import React, { useState, useCallback, useRef, useEffect, forwardRef } from 'react';
 import { ImageFile, ResultState, HistoryItem } from './types';
 import { generatePhotos, refineImage } from './services/geminiService';
-import { UploadIcon, ModelIcon, StyleIcon, DownloadIcon, ZoomIcon, UndoIcon, RedoIcon, CloseIcon, SpinnerIcon } from './components/icons';
+import { UploadIcon, ModelIcon, StyleIcon, DownloadIcon, ZoomIcon, UndoIcon, RedoIcon, CloseIcon, SpinnerIcon, WarningIcon } from './components/icons';
 
 // --- Reusable Components (defined outside main App to prevent re-renders) ---
 
@@ -32,8 +33,7 @@ interface ImageUploaderProps {
   value: ImageFile | null;
 }
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ id, label, icon, onFileChange, disabled, value }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+const ImageUploader = forwardRef<HTMLInputElement, ImageUploaderProps>(({ id, label, icon, onFileChange, disabled, value }, ref) => {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -55,8 +55,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ id, label, icon, onFileCh
       e.preventDefault();
       e.stopPropagation();
       onFileChange(null);
-      if(inputRef.current) {
-          inputRef.current.value = "";
+      const input = (ref as React.RefObject<HTMLInputElement>)?.current;
+      if(input) {
+          input.value = "";
       }
   }
 
@@ -72,7 +73,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ id, label, icon, onFileCh
         {value ? (
             <>
                 <img src={value.previewUrl} alt="Preview" className="h-full w-full object-cover rounded-lg" />
-                <button onClick={handleRemove} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 leading-none">
+                <button onClick={handleRemove} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 leading-none z-10">
                     <CloseIcon />
                 </button>
             </>
@@ -85,11 +86,56 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ id, label, icon, onFileCh
                 <p className="text-xs text-gray-500">PNG, JPG, WEBP</p>
             </div>
         )}
-        <input ref={inputRef} id={id} type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleFileChange} disabled={disabled} />
+        <input ref={ref} id={id} type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleFileChange} disabled={disabled} />
       </label>
     </div>
   );
+});
+
+interface EthicalNoticeModalProps {
+    onContinue: () => void;
+    onClose: () => void;
+}
+
+const EthicalNoticeModal: React.FC<EthicalNoticeModalProps> = ({ onContinue, onClose }) => {
+    const [isChecked, setIsChecked] = useState(false);
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
+            <div className="bg-[#2a2d42] text-white p-8 rounded-xl shadow-lg max-w-lg w-full border border-gray-700 animate-scale-in" onClick={e => e.stopPropagation()}>
+                <div className="flex flex-col items-center text-center">
+                    <WarningIcon />
+                    <h2 className="text-2xl font-bold mt-4 mb-2">Ethical AI Notice</h2>
+                </div>
+                <div className="text-gray-300 space-y-3 my-4 text-justify">
+                    <p>Demi menjaga privasi dan keamanan, sistem AI kami tidak menyalin wajah secara identik. Foto model digunakan hanya sebagai referensi gaya dan karakter, bukan untuk meniru wajah sepenuhnya.</p>
+                    <p>Hal ini bertujuan melindungi pengguna dan model dari penyalahgunaan identitas atau risiko deepfake.</p>
+                    <p>Hasil foto mungkin memiliki sedikit perbedaan pada detail wajah, namun tetap mempertahankan karakter yang sama.</p>
+                </div>
+                <div className="mt-6">
+                    <label className="flex items-start text-sm text-gray-400 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => setIsChecked(!isChecked)}
+                            className="mr-3 mt-1 h-4 w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span>I understand and agree that the generated face may not perfectly match the uploaded model.</span>
+                    </label>
+                </div>
+                <div className="mt-6 flex justify-end">
+                     <button
+                        onClick={onContinue}
+                        disabled={!isChecked}
+                        className="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition-colors"
+                    >
+                        Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 };
+
 
 // --- Main App Component ---
 
@@ -107,6 +153,11 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+
+  const [showEthicalNotice, setShowEthicalNotice] = useState(false);
+  const [hasAgreedToNotice, setHasAgreedToNotice] = useState(false);
+  const modelInputRef = useRef<HTMLInputElement>(null);
+
 
   // Correctly revoke object URLs on cleanup to ensure image previews are displayed.
   useEffect(() => {
@@ -149,6 +200,21 @@ export default function App() {
       setActiveTheme(theme);
       setCustomTheme('');
   };
+
+  const handleModelUploaderClick = (e: React.MouseEvent) => {
+      if (!hasAgreedToNotice) {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowEthicalNotice(true);
+      }
+  };
+
+  const handleNoticeContinue = () => {
+      setHasAgreedToNotice(true);
+      setShowEthicalNotice(false);
+      modelInputRef.current?.click();
+  }
+
 
   const handleGenerateClick = useCallback(async () => {
     if (!productPhoto) {
@@ -255,7 +321,9 @@ export default function App() {
             <h2 className="text-xl font-bold mb-4">1. Upload Photos</h2>
             <div className="space-y-4">
               <ImageUploader id="product-photo" label="Product Photo (Required)" icon={<UploadIcon />} onFileChange={setProductPhoto} value={productPhoto}/>
-              <ImageUploader id="model-photo" label="Model Photo (Optional)" icon={<ModelIcon />} onFileChange={handleModelPhotoChange} disabled={!!referencePhoto} value={modelPhoto}/>
+               <div onClickCapture={handleModelUploaderClick}>
+                  <ImageUploader ref={modelInputRef} id="model-photo" label="Model Photo (Optional)" icon={<ModelIcon />} onFileChange={handleModelPhotoChange} disabled={!!referencePhoto} value={modelPhoto}/>
+               </div>
               <ImageUploader id="style-photo" label="Reference Style (Optional)" icon={<StyleIcon />} onFileChange={handleReferencePhotoChange} disabled={!!modelPhoto} value={referencePhoto}/>
             </div>
           </div>
@@ -370,13 +438,22 @@ export default function App() {
 
       {/* Zoom Modal */}
       {zoomedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" onClick={() => setZoomedImage(null)}>
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 animate-fade-in" onClick={() => setZoomedImage(null)}>
           <img src={zoomedImage} alt="Zoomed preview" className="max-w-[90vw] max-h-[90vh] object-contain" />
           <button onClick={() => setZoomedImage(null)} className="absolute top-4 right-4 text-white hover:text-purple-400">
             <CloseIcon />
           </button>
         </div>
       )}
+
+      {/* Ethical AI Notice Modal */}
+      {showEthicalNotice && (
+          <EthicalNoticeModal
+              onContinue={handleNoticeContinue}
+              onClose={() => setShowEthicalNotice(false)}
+          />
+      )}
+
     </div>
   );
 }
